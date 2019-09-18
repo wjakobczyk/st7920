@@ -1,0 +1,46 @@
+[package]
+authors = ["Wojciech Jakobczyk <jakobczyk.woj@gmail.com>"]
+edition = "2018"
+readme = "README.md"
+name = "st7920"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.6.0"
+cortex-m-rt = "0.6.10"
+cortex-m-semihosting = "0.3.3"
+panic-halt = "0.2.0"
+embedded-hal = { version = "0.2.3", features = ["unproven"] }
+num-traits = { version = "0.2", default-features = false }
+num-derive = { version = "0.2", default-features = false }
+
+# Uncomment for the panic example.
+# panic-itm = "0.4.1"
+
+# Uncomment for the allocator example.
+# alloc-cortex-m = "0.3.5"
+
+# Uncomment for the device example.
+# Update `memory.x`, set target to `thumbv7em-none-eabihf` in `.cargo/config`,
+# and then use `cargo build --examples device` to build it.
+[dependencies.stm32f4]
+features = ["stm32f407", "rt"]
+version = "0.8.0"
+
+[dependencies.stm32f4xx-hal]
+default-features = false
+features = ["rt", "stm32f407"]
+version = "0.5.0"
+
+[dependencies.embedded-graphics]
+optional = true
+version = "0.6.0-alpha.2"
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
+
+[features]
+default = ["graphics"]
+graphics = ["embedded-graphics"]

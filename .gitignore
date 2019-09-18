@@ -1,0 +1,9 @@
+**/*.rs.bk
+.#*
+.gdb_history
+Cargo.lock
+.cargo-ok
+.project
+.vscode
+target/
+rusttest.code-workspace
