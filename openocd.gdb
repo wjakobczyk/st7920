@@ -1,6 +1,6 @@
 target extended-remote :3333
 
-file target/thumbv7em-none-eabihf/debug/rusttest
+file target/thumbv7em-none-eabihf/debug/examples/graphics
 
 # print demangled symbols
 set print asm-demangle on
@@ -19,7 +19,7 @@ set backtrace limit 32
 # end
 
 # *try* to stop at the user entry point (it might be gone due to inlining)
-break main.rs:66
+break graphics.rs:66
 
 monitor arm semihosting enable
 
