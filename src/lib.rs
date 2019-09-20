@@ -8,10 +8,15 @@ use embedded_hal::blocking::delay::DelayUs;
 use embedded_hal::blocking::spi;
 use embedded_hal::digital::v2::OutputPin;
 
+#[derive(Debug)]
+pub enum Error<CommError, PinError> {
+    Comm(CommError),
+    Pin(PinError),
+}
+
 /// ST7735 instructions.
 #[derive(ToPrimitive)]
 enum Instruction {
-    Nop = 0x00,
     BasicFunction = 0x30,
     ExtendedFunction = 0x34,
     ClearScreen = 0x01,
@@ -47,11 +52,11 @@ where
     buffer: [u8; BUFFER_SIZE],
 }
 
-impl<SPI, RST, CS, DELAY> ST7920<SPI, RST, CS, DELAY>
+impl<SPI, RST, CS, DELAY, PinError, SPIError> ST7920<SPI, RST, CS, DELAY>
 where
-    SPI: spi::Write<u8>,
-    RST: OutputPin,
-    CS: OutputPin,
+    SPI: spi::Write<u8, Error = SPIError>,
+    RST: OutputPin<Error = PinError>,
+    CS: OutputPin<Error = PinError>,
     DELAY: DelayMs<u8> + DelayUs<u8>,
 {
     /// Creates a new driver instance that uses hardware SPI.
@@ -72,10 +77,9 @@ where
         }
     }
 
-    /// Runs commands to initialize the display.
-    pub fn init(&mut self) -> Result<(), ()> {
+    pub fn init(&mut self) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs2) = self.cs.as_mut() {
-            cs2.set_high();
+            cs2.set_high().map_err(Error::Pin)?;
         }
 
         self.hard_reset()?;
@@ -95,19 +99,23 @@ where
         Ok(())
     }
 
-    fn hard_reset(&mut self) -> Result<(), ()> {
-        self.rst.set_low().map_err(|_| ())?;
+    fn hard_reset(&mut self) -> Result<(), Error<(SPIError), PinError>> {
+        self.rst.set_low().map_err(Error::Pin)?;
         self.delay.delay_ms(40);
-        self.rst.set_high().map_err(|_| ())?;
+        self.rst.set_high().map_err(Error::Pin)?;
         self.delay.delay_ms(40);
         Ok(())
     }
 
-    fn write_command(&mut self, command: Instruction) -> Result<(), ()> {
+    fn write_command(&mut self, command: Instruction) -> Result<(), Error<SPIError, PinError>> {
         self.write_command_param(command, 0)
     }
 
-    fn write_command_param(&mut self, command: Instruction, param: u8) -> Result<(), ()> {
+    fn write_command_param(
+        &mut self,
+        command: Instruction,
+        param: u8,
+    ) -> Result<(), Error<SPIError, PinError>> {
         let command_param = command.to_u8().unwrap() | param;
         let cmd: u8 = 0xF8;
         //		if let Some(cs2) = self.cs.as_mut() {
@@ -116,7 +124,7 @@ where
         //		}
         self.spi
             .write(&[cmd, command_param & 0xF0, (command_param << 4) & 0xF0])
-            .map_err(|_| ())?;
+            .map_err(Error::Comm)?;
         //		if let Some(cs2) = self.cs.as_mut() {
         //			self.delay.delay_us(100);	//todo 60ns needed
         //			cs2.set_low();
@@ -124,14 +132,14 @@ where
         Ok(())
     }
 
-    fn write_data(&mut self, data: u8) -> Result<(), ()> {
+    fn write_data(&mut self, data: u8) -> Result<(), Error<SPIError, PinError>> {
         //		if let Some(cs2) = self.cs.as_mut() {
         //			cs2.set_high();
         //			self.delay.delay_us(40);
         //		}
         self.spi
             .write(&[0xFA, data & 0xF0, (data << 4) & 0xF0])
-            .map_err(|_| ())?;
+            .map_err(Error::Comm)?;
         //		if let Some(cs2) = self.cs.as_mut() {
         //			self.delay.delay_ms(10);	//todo 60ns needed
         //			cs2.set_low();
@@ -139,7 +147,7 @@ where
         Ok(())
     }
 
-    fn set_address(&mut self, x: u8, y: u8) -> Result<(), ()> {
+    fn set_address(&mut self, x: u8, y: u8) -> Result<(), Error<SPIError, PinError>> {
         const HALF_HEIGHT: u8 = HEIGHT as u8 / 2;
 
         //		self.write_command_param(Instruction::SetGraphicsAddress, y)?;
@@ -160,11 +168,11 @@ where
         Ok(())
     }
 
-    pub fn clear(&mut self) -> Result<(), ()> {
+    pub fn clear(&mut self) -> Result<(), Error<SPIError, PinError>> {
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
 
-            for x in 0..ROW_SIZE {
+            for _x in 0..ROW_SIZE {
                 self.write_data(0)?;
                 self.write_data(0)?;
             }
@@ -173,19 +181,16 @@ where
         Ok(())
     }
 
-    pub fn set_pixel(&mut self, x: u8, y: u8, val: u8) -> Result<(), ()> {
-        //TODO no result
+    pub fn set_pixel(&mut self, x: u8, y: u8, val: u8) {
         let x_mask = 0x80 >> (x % 8);
         if val != 0 {
             self.buffer[y as usize * ROW_SIZE + x as usize / 8] |= x_mask;
         } else {
             self.buffer[y as usize * ROW_SIZE + x as usize / 8] &= !x_mask;
         }
-
-        Ok(())
     }
 
-    pub fn flush(&mut self) -> Result<(), ()> {
+    pub fn flush(&mut self) -> Result<(), Error<SPIError, PinError>> {
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
 
@@ -202,7 +207,13 @@ where
         Ok(())
     }
 
-    pub fn flush_range(&mut self, x1: u8, y1: u8, mut w: u8, h: u8) -> Result<(), ()> {
+    pub fn flush_range(
+        &mut self,
+        x1: u8,
+        y1: u8,
+        mut w: u8,
+        h: u8,
+    ) -> Result<(), Error<SPIError, PinError>> {
         if w % 8 != 0 {
             w += 8; //make sure rightmost pixels are covered
         }
@@ -240,11 +251,11 @@ use self::embedded_graphics::{
 };
 
 #[cfg(feature = "graphics")]
-impl<SPI, DC, RST, DELAY> Drawing<BinaryColor> for ST7920<SPI, DC, RST, DELAY>
+impl<SPI, CS, RST, DELAY, PinError, SPIError> Drawing<BinaryColor> for ST7920<SPI, CS, RST, DELAY>
 where
-    SPI: spi::Write<u8>,
-    DC: OutputPin,
-    RST: OutputPin,
+    SPI: spi::Write<u8, Error = SPIError>,
+    RST: OutputPin<Error = PinError>,
+    CS: OutputPin<Error = PinError>,
     DELAY: DelayMs<u8> + DelayUs<u8>,
 {
     fn draw<T>(&mut self, item_pixels: T)
@@ -256,8 +267,7 @@ where
                 point.x as u8,
                 point.y as u8,
                 RawU1::from(color).into_inner(),
-            )
-            .expect("pixel write failed");
+            );
         }
     }
 }
