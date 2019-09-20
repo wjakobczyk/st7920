@@ -77,11 +77,25 @@ where
         }
     }
 
-    pub fn init(&mut self) -> Result<(), Error<SPIError, PinError>> {
-        if let Some(cs2) = self.cs.as_mut() {
-            cs2.set_high().map_err(Error::Pin)?;
+    fn enable_cs(&mut self) -> Result<(), Error<SPIError, PinError>> {
+        if let Some(cs) = self.cs.as_mut() {
+            cs.set_high().map_err(Error::Pin)?;
+            self.delay.delay_us(1);
         }
+        Ok(())
+    }
 
+    fn disable_cs(&mut self) -> Result<(), Error<SPIError, PinError>> {
+        if let Some(cs) = self.cs.as_mut() {
+            self.delay.delay_us(1);
+            cs.set_high().map_err(Error::Pin)?;
+        }
+        Ok(())
+    }
+
+    /// Runs commands to initialize the display.
+    pub fn init(&mut self) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs()?;
         self.hard_reset()?;
         self.write_command(Instruction::BasicFunction)?;
         self.delay.delay_us(200);
@@ -96,6 +110,7 @@ where
         self.write_command(Instruction::GraphicsOn)?;
         self.delay.delay_ms(100);
 
+        self.disable_cs()?;
         Ok(())
     }
 
@@ -118,40 +133,24 @@ where
     ) -> Result<(), Error<SPIError, PinError>> {
         let command_param = command.to_u8().unwrap() | param;
         let cmd: u8 = 0xF8;
-        //		if let Some(cs2) = self.cs.as_mut() {
-        //			cs2.set_high();
-        //			self.delay.delay_us(100);
-        //		}
+
         self.spi
             .write(&[cmd, command_param & 0xF0, (command_param << 4) & 0xF0])
             .map_err(Error::Comm)?;
-        //		if let Some(cs2) = self.cs.as_mut() {
-        //			self.delay.delay_us(100);	//todo 60ns needed
-        //			cs2.set_low();
-        //		}
+
         Ok(())
     }
 
     fn write_data(&mut self, data: u8) -> Result<(), Error<SPIError, PinError>> {
-        //		if let Some(cs2) = self.cs.as_mut() {
-        //			cs2.set_high();
-        //			self.delay.delay_us(40);
-        //		}
         self.spi
             .write(&[0xFA, data & 0xF0, (data << 4) & 0xF0])
             .map_err(Error::Comm)?;
-        //		if let Some(cs2) = self.cs.as_mut() {
-        //			self.delay.delay_ms(10);	//todo 60ns needed
-        //			cs2.set_low();
-        //		}
         Ok(())
     }
 
     fn set_address(&mut self, x: u8, y: u8) -> Result<(), Error<SPIError, PinError>> {
         const HALF_HEIGHT: u8 = HEIGHT as u8 / 2;
 
-        //		self.write_command_param(Instruction::SetGraphicsAddress, y)?;
-        //		self.write_command_param(Instruction::SetGraphicsAddress, x)?;
         self.write_command_param(
             Instruction::SetGraphicsAddress,
             if y < HALF_HEIGHT { y } else { y - HALF_HEIGHT },
@@ -169,6 +168,8 @@ where
     }
 
     pub fn clear(&mut self) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs()?;
+
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
 
@@ -178,6 +179,7 @@ where
             }
         }
 
+        self.disable_cs()?;
         Ok(())
     }
 
@@ -191,6 +193,8 @@ where
     }
 
     pub fn flush(&mut self) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs()?;
+
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
 
@@ -204,6 +208,7 @@ where
             }
         }
 
+        self.disable_cs()?;
         Ok(())
     }
 
@@ -214,6 +219,8 @@ where
         mut w: u8,
         h: u8,
     ) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs()?;
+
         if w % 8 != 0 {
             w += 8; //make sure rightmost pixels are covered
         }
@@ -234,6 +241,7 @@ where
             row_start += ROW_SIZE;
         }
 
+        self.disable_cs()?;
         Ok(())
     }
 }
