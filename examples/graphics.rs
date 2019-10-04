@@ -60,7 +60,7 @@ fn main() -> ! {
                 .into_iter(),
         );
 
-        disp.flush_range(15, 15, 14, 31)
+        disp.flush_region(15, 15, 14, 31)
             .expect("could not flush display");
     }
 

@@ -1,12 +1,12 @@
 [package]
+name = "st7920"
+description = "SPI driver for the ST7920 LCD display controller"
 authors = ["Wojciech Jakóbczyk <jakobczyk.woj@gmail.com>"]
 categories = ["embedded", "no-std"]
-description = "SPI driver for the ST7920 LCD display controller"
 documentation = "https://docs.rs/st7920"
 exclude = [".gitignore"]
 keywords = ["no-std", "st7920", "lcd", "embedded", "embedded-hal-driver"]
 license = "MIT"
-name = "st7920"
 readme = "README.md"
 repository = "https://github.com/wjakobczyk/st7920"
 version = "0.1.0"

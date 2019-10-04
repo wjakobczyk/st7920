@@ -1,3 +1,16 @@
+//! # ST7920
+//!
+//! This is a Rust driver library for LCD displays using the [ST7920] controller.
+//!
+//! It supports graphics mode of the controller, 128x64 in 1bpp. SPI connection to MCU is supported.
+//!
+//! The controller supports 1 bit-per-pixel displays, so an off-screen buffer has to be used to provide random access to pixels.
+//!
+//! Size of the buffer is 1024 bytes.
+//!
+//! The buffer has to be flushed to update the display after a group of draw calls has been completed.
+//! The flush is not part of embedded-graphics API.
+
 #![no_std]
 
 use num_derive::ToPrimitive;
@@ -14,7 +27,7 @@ pub enum Error<CommError, PinError> {
     Pin(PinError),
 }
 
-/// ST7735 instructions.
+/// ST7920 instructions.
 #[derive(ToPrimitive)]
 enum Instruction {
     BasicFunction = 0x30,
@@ -32,19 +45,19 @@ const ROW_SIZE: usize = (WIDTH / 8) as usize;
 const BUFFER_SIZE: usize = ROW_SIZE * HEIGHT as usize;
 const X_ADDR_DIV: u8 = 16;
 
-/// ST7735 driver to connect to TFT displays.
 pub struct ST7920<SPI, RST, CS, DELAY>
 where
     SPI: spi::Write<u8>,
     RST: OutputPin,
     CS: OutputPin,
 {
-    /// SPI
+    /// SPI pin
     spi: SPI,
 
     /// Reset pin.
     rst: RST,
 
+    /// CS pin
     cs: Option<CS>,
 
     delay: DELAY,
@@ -59,10 +72,10 @@ where
     CS: OutputPin<Error = PinError>,
     DELAY: DelayMs<u8> + DelayUs<u8>,
 {
-    /// Creates a new driver instance that uses hardware SPI.
+    /// Create a new driver instance that uses SPI connection.
     pub fn new(
         spi: SPI,
-        rst: RST, //TODO option
+        rst: RST,
         cs: Option<CS>,
         delay: DELAY,
     ) -> Self {
@@ -93,7 +106,7 @@ where
         Ok(())
     }
 
-    /// Runs commands to initialize the display.
+    /// Initialize the display controller
     pub fn init(&mut self) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs()?;
         self.hard_reset()?;
@@ -167,6 +180,7 @@ where
         Ok(())
     }
 
+    /// Clear whole display area
     pub fn clear(&mut self) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs()?;
 
@@ -183,6 +197,7 @@ where
         Ok(())
     }
 
+    /// Draw pixel
     pub fn set_pixel(&mut self, x: u8, y: u8, val: u8) {
         let x_mask = 0x80 >> (x % 8);
         if val != 0 {
@@ -192,6 +207,7 @@ where
         }
     }
 
+    /// Flush buffer to update entire display
     pub fn flush(&mut self) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs()?;
 
@@ -212,10 +228,11 @@ where
         Ok(())
     }
 
-    pub fn flush_range(
+    /// Flush buffer to update region of the display
+    pub fn flush_region(
         &mut self,
-        x1: u8,
-        y1: u8,
+        x: u8,
+        y: u8,
         mut w: u8,
         h: u8,
     ) -> Result<(), Error<SPIError, PinError>> {
@@ -229,13 +246,13 @@ where
             w += 8; //need to send even number of bytes
         }
 
-        let mut row_start = y1 as usize * ROW_SIZE;
-        for y in y1..y1 + h {
-            self.set_address(x1 / 8, y)?;
+        let mut row_start = y as usize * ROW_SIZE;
+        for y in y..y + h {
+            self.set_address(x / 8, y)?;
 
-            for x in x1 / 8..(x1 + w) / 8 {
+            for x in x / 8..(x + w) / 8 {
                 self.write_data(self.buffer[row_start + x as usize])?;
-                //TODO send in one SPI transaction
+                //TODO send in a single SPI transaction
             }
 
             row_start += ROW_SIZE;
