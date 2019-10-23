@@ -29,7 +29,7 @@ fn main() -> ! {
             .sysclk(stm32f4xx_hal::time::MegaHertz(168))
             .freeze();
 
-        let delay = Delay::new(cp.SYST, clocks);
+        let mut delay = Delay::new(cp.SYST, clocks);
 
         let gpiob = p.GPIOB.split();
 
@@ -49,10 +49,10 @@ fn main() -> ! {
             clocks,
         );
 
-        let mut disp = ST7920::new(spi, reset, Some(cs), delay);
+        let mut disp = ST7920::new(spi, reset, Some(cs));
 
-        disp.init().expect("could not init display");
-        disp.clear().expect("could not clear display");
+        disp.init(&mut delay).expect("could not init display");
+        disp.clear(&mut delay).expect("could not clear display");
 
         disp.draw(
             Circle::new(Point::new(30, 30), 15)
@@ -60,7 +60,7 @@ fn main() -> ! {
                 .into_iter(),
         );
 
-        disp.flush_region(15, 15, 14, 31)
+        disp.flush_region(15, 15, 14, 31, &mut delay)
             .expect("could not flush display");
     }
 
