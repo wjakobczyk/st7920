@@ -16,7 +16,6 @@
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 
-use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::delay::DelayUs;
 use embedded_hal::blocking::spi;
 use embedded_hal::digital::v2::OutputPin;
@@ -45,7 +44,7 @@ const ROW_SIZE: usize = (WIDTH / 8) as usize;
 const BUFFER_SIZE: usize = ROW_SIZE * HEIGHT as usize;
 const X_ADDR_DIV: u8 = 16;
 
-pub struct ST7920<SPI, RST, CS, DELAY>
+pub struct ST7920<SPI, RST, CS>
 where
     SPI: spi::Write<u8>,
     RST: OutputPin,
@@ -60,78 +59,75 @@ where
     /// CS pin
     cs: Option<CS>,
 
-    delay: DELAY,
-
     buffer: [u8; BUFFER_SIZE],
 }
 
-impl<SPI, RST, CS, DELAY, PinError, SPIError> ST7920<SPI, RST, CS, DELAY>
+impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
 where
     SPI: spi::Write<u8, Error = SPIError>,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
-    DELAY: DelayMs<u8> + DelayUs<u8>,
 {
     /// Create a new driver instance that uses SPI connection.
-    pub fn new(
-        spi: SPI,
-        rst: RST,
-        cs: Option<CS>,
-        delay: DELAY,
-    ) -> Self {
+    pub fn new(spi: SPI, rst: RST, cs: Option<CS>) -> Self {
         let buffer = [0; BUFFER_SIZE];
 
         ST7920 {
             spi,
             rst,
             cs,
-            delay,
             buffer,
         }
     }
 
-    fn enable_cs(&mut self) -> Result<(), Error<SPIError, PinError>> {
+    fn enable_cs(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
             cs.set_high().map_err(Error::Pin)?;
-            self.delay.delay_us(1);
+            delay.delay_us(1);
         }
         Ok(())
     }
 
-    fn disable_cs(&mut self) -> Result<(), Error<SPIError, PinError>> {
+    fn disable_cs(
+        &mut self,
+        delay: &mut dyn DelayUs<u32>,
+    ) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
-            self.delay.delay_us(1);
+            delay.delay_us(1);
             cs.set_high().map_err(Error::Pin)?;
         }
         Ok(())
     }
 
     /// Initialize the display controller
-    pub fn init(&mut self) -> Result<(), Error<SPIError, PinError>> {
-        self.enable_cs()?;
-        self.hard_reset()?;
+    pub fn init(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs(delay)?;
+        self.hard_reset(delay)?;
         self.write_command(Instruction::BasicFunction)?;
-        self.delay.delay_us(200);
+        delay.delay_us(200);
         self.write_command(Instruction::DisplayOnCursorOff)?;
-        self.delay.delay_us(100);
+        delay.delay_us(100);
         self.write_command(Instruction::ClearScreen)?;
-        self.delay.delay_ms(10);
+        delay.delay_us(10 * 1000);
         self.write_command(Instruction::EntryMode)?;
-        self.delay.delay_us(100);
+        delay.delay_us(100);
         self.write_command(Instruction::ExtendedFunction)?;
-        self.delay.delay_ms(10);
+        delay.delay_us(10 * 1000);
         self.write_command(Instruction::GraphicsOn)?;
-        self.delay.delay_ms(100);
+        delay.delay_us(100 * 1000);
 
-        self.disable_cs()?;
+        self.disable_cs(delay)?;
         Ok(())
     }
 
-    fn hard_reset(&mut self) -> Result<(), Error<(SPIError), PinError>> {
+    fn hard_reset(
+        &mut self,
+        delay: &mut dyn DelayUs<u32>,
+    ) -> Result<(), Error<(SPIError), PinError>> {
         self.rst.set_low().map_err(Error::Pin)?;
-        self.delay.delay_ms(40);
+        delay.delay_us(40 * 1000);
         self.rst.set_high().map_err(Error::Pin)?;
-        self.delay.delay_ms(40);
+        delay.delay_us(40 * 1000);
         Ok(())
     }
 
@@ -181,8 +177,8 @@ where
     }
 
     /// Clear whole display area
-    pub fn clear(&mut self) -> Result<(), Error<SPIError, PinError>> {
-        self.enable_cs()?;
+    pub fn clear(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs(delay)?;
 
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
@@ -193,7 +189,7 @@ where
             }
         }
 
-        self.disable_cs()?;
+        self.disable_cs(delay)?;
         Ok(())
     }
 
@@ -208,8 +204,8 @@ where
     }
 
     /// Flush buffer to update entire display
-    pub fn flush(&mut self) -> Result<(), Error<SPIError, PinError>> {
-        self.enable_cs()?;
+    pub fn flush(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs(delay)?;
 
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
@@ -224,7 +220,7 @@ where
             }
         }
 
-        self.disable_cs()?;
+        self.disable_cs(delay)?;
         Ok(())
     }
 
@@ -235,8 +231,9 @@ where
         y: u8,
         mut w: u8,
         h: u8,
+        delay: &mut dyn DelayUs<u32>,
     ) -> Result<(), Error<SPIError, PinError>> {
-        self.enable_cs()?;
+        self.enable_cs(delay)?;
 
         if w % 8 != 0 {
             w += 8; //make sure rightmost pixels are covered
@@ -258,7 +255,7 @@ where
             row_start += ROW_SIZE;
         }
 
-        self.disable_cs()?;
+        self.disable_cs(delay)?;
         Ok(())
     }
 }
@@ -276,12 +273,11 @@ use self::embedded_graphics::{
 };
 
 #[cfg(feature = "graphics")]
-impl<SPI, CS, RST, DELAY, PinError, SPIError> Drawing<BinaryColor> for ST7920<SPI, CS, RST, DELAY>
+impl<SPI, CS, RST, PinError, SPIError> Drawing<BinaryColor> for ST7920<SPI, CS, RST>
 where
     SPI: spi::Write<u8, Error = SPIError>,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
-    DELAY: DelayMs<u8> + DelayUs<u8>,
 {
     fn draw<T>(&mut self, item_pixels: T)
     where
