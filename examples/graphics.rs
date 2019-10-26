@@ -49,7 +49,7 @@ fn main() -> ! {
             clocks,
         );
 
-        let mut disp = ST7920::new(spi, reset, Some(cs));
+        let mut disp = ST7920::new(spi, reset, Some(cs), false);
 
         disp.init(&mut delay).expect("could not init display");
         disp.clear(&mut delay).expect("could not clear display");
