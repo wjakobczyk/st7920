@@ -12,7 +12,6 @@
 //! The flush is not part of embedded-graphics API.
 
 #![no_std]
-
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 
@@ -235,19 +234,20 @@ where
     ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
 
-        if w % 8 != 0 {
-            w += 8; //make sure rightmost pixels are covered
+        let left = (x / 8) * 8;
+        let mut right = ((left + w) / 8) * 8;
+        if right < x + w {
+            right += 8; //make sure rightmost pixels are covered
         }
-
-        if (w / 8) % 2 != 0 {
-            w += 8; //need to send even number of bytes
+        if ((right - left) / 8) % 2 != 0 {
+            right += 8; //need to send even number of bytes
         }
 
         let mut row_start = y as usize * ROW_SIZE;
         for y in y..y + h {
             self.set_address(x / 8, y)?;
 
-            for x in x / 8..(x + w) / 8 {
+            for x in left / 8..right / 8 {
                 self.write_data(self.buffer[row_start + x as usize])?;
                 //TODO send in a single SPI transaction
             }
