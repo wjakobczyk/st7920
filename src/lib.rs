@@ -59,6 +59,8 @@ where
     cs: Option<CS>,
 
     buffer: [u8; BUFFER_SIZE],
+
+    flip: bool,
 }
 
 impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
@@ -68,7 +70,7 @@ where
     CS: OutputPin<Error = PinError>,
 {
     /// Create a new driver instance that uses SPI connection.
-    pub fn new(spi: SPI, rst: RST, cs: Option<CS>) -> Self {
+    pub fn new(spi: SPI, rst: RST, cs: Option<CS>, flip: bool) -> Self {
         let buffer = [0; BUFFER_SIZE];
 
         ST7920 {
@@ -76,6 +78,7 @@ where
             rst,
             cs,
             buffer,
+            flip,
         }
     }
 
@@ -193,7 +196,12 @@ where
     }
 
     /// Draw pixel
-    pub fn set_pixel(&mut self, x: u8, y: u8, val: u8) {
+    pub fn set_pixel(&mut self, mut x: u8, mut y: u8, val: u8) {
+        if self.flip {
+            y = HEIGHT as u8 - y;
+            x = WIDTH as u8 - x;
+        }
+
         let x_mask = 0x80 >> (x % 8);
         if val != 0 {
             self.buffer[y as usize * ROW_SIZE + x as usize / 8] |= x_mask;
@@ -227,25 +235,36 @@ where
     pub fn flush_region(
         &mut self,
         x: u8,
-        y: u8,
-        mut w: u8,
+        mut y: u8,
+        w: u8,
         h: u8,
         delay: &mut dyn DelayUs<u32>,
     ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
 
-        let left = (x / 8) * 8;
+        let mut adj_x = x;
+        if self.flip {
+            y = HEIGHT as u8 - (y + h);
+            adj_x = WIDTH as u8 - (x + w);
+        }
+
+        let mut left = (adj_x / 8) * 8;
         let mut right = ((left + w) / 8) * 8;
-        if right < x + w {
+        if right < adj_x + w {
             right += 8; //make sure rightmost pixels are covered
         }
         if ((right - left) / 8) % 2 != 0 {
-            right += 8; //need to send even number of bytes
+            //need to send even number of bytes
+            if self.flip {
+                left -= 8;
+            } else {
+                right += 8;
+            }
         }
 
         let mut row_start = y as usize * ROW_SIZE;
         for y in y..y + h {
-            self.set_address(x / 8, y)?;
+            self.set_address(adj_x, y)?;
 
             for x in left / 8..right / 8 {
                 self.write_data(self.buffer[row_start + x as usize])?;
