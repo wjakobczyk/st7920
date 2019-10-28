@@ -288,6 +288,7 @@ use self::embedded_graphics::{
         raw::{RawData, RawU1},
         BinaryColor,
     },
+    prelude::*,
     Drawing,
 };
 
@@ -309,5 +310,26 @@ where
                 RawU1::from(color).into_inner(),
             );
         }
+    }
+}
+
+impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
+where
+    SPI: spi::Write<u8, Error = SPIError>,
+    RST: OutputPin<Error = PinError>,
+    CS: OutputPin<Error = PinError>,
+{
+    pub fn flush_region_graphics(
+        &mut self,
+        region: (Point, Size),
+        delay: &mut dyn DelayUs<u32>,
+    ) -> Result<(), Error<SPIError, PinError>> {
+        self.flush_region(
+            region.0.x as u8,
+            region.0.y as u8,
+            region.1.width as u8,
+            region.1.height as u8,
+            delay,
+        )
     }
 }
