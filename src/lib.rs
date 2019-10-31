@@ -198,8 +198,8 @@ where
     /// Draw pixel
     pub fn set_pixel(&mut self, mut x: u8, mut y: u8, val: u8) {
         if self.flip {
-            y = HEIGHT as u8 - y;
-            x = WIDTH as u8 - x;
+            y = (HEIGHT - 1) as u8 - y;
+            x = (WIDTH - 1) as u8 - x;
         }
 
         let x_mask = 0x80 >> (x % 8);
@@ -244,8 +244,8 @@ where
 
         let mut adj_x = x;
         if self.flip {
-            y = HEIGHT as u8 - (y + h);
-            adj_x = WIDTH as u8 - (x + w);
+            y = (HEIGHT - 1) as u8 - (y + h);
+            adj_x = (WIDTH - 1) as u8 - (x + w);
         }
 
         let mut left = (adj_x / 8) * 8;
