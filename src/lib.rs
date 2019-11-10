@@ -248,18 +248,10 @@ where
             adj_x = (WIDTH - 1) as u8 - (x + w);
         }
 
-        let mut left = (adj_x / 8) * 8;
-        let mut right = ((left + w) / 8) * 8;
+        let left = (adj_x / X_ADDR_DIV) * X_ADDR_DIV;
+        let mut right = ((adj_x + w) / X_ADDR_DIV) * X_ADDR_DIV;
         if right < adj_x + w {
-            right += 8; //make sure rightmost pixels are covered
-        }
-        if ((right - left) / 8) % 2 != 0 {
-            //need to send even number of bytes
-            if self.flip {
-                left -= 8;
-            } else {
-                right += 8;
-            }
+            right += X_ADDR_DIV; //make sure rightmost pixels are covered
         }
 
         let mut row_start = y as usize * ROW_SIZE;
