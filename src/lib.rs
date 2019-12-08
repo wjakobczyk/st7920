@@ -37,8 +37,8 @@ enum Instruction {
     SetGraphicsAddress = 0x80,
 }
 
-const WIDTH: i32 = 128;
-const HEIGHT: i32 = 64;
+pub const WIDTH: i32 = 128;
+pub const HEIGHT: i32 = 64;
 const ROW_SIZE: usize = (WIDTH / 8) as usize;
 const BUFFER_SIZE: usize = ROW_SIZE * HEIGHT as usize;
 const X_ADDR_DIV: u8 = 16;
@@ -244,8 +244,8 @@ where
 
         let mut adj_x = x;
         if self.flip {
-            y = (HEIGHT - 1) as u8 - (y + h);
-            adj_x = (WIDTH - 1) as u8 - (x + w);
+            y = HEIGHT as u8 - (y + h);
+            adj_x = WIDTH as u8 - (x + w);
         }
 
         let left = (adj_x / X_ADDR_DIV) * X_ADDR_DIV;
