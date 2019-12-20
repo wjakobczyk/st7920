@@ -37,8 +37,8 @@ enum Instruction {
     SetGraphicsAddress = 0x80,
 }
 
-const WIDTH: i32 = 128;
-const HEIGHT: i32 = 64;
+pub const WIDTH: i32 = 128;
+pub const HEIGHT: i32 = 64;
 const ROW_SIZE: usize = (WIDTH / 8) as usize;
 const BUFFER_SIZE: usize = ROW_SIZE * HEIGHT as usize;
 const X_ADDR_DIV: u8 = 16;
