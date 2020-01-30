@@ -16,7 +16,7 @@ edition = "2018"
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
 num-traits = { version = "0.2", default-features = false }
 num-derive = { version = "0.2", default-features = false }
-embedded-graphics = { optional = true, version = "0.6.0-alpha.2" }
+embedded-graphics = { optional = true, version = "=0.6.0-alpha.2" }
 
 [dev-dependencies]
 cortex-m = "0.6.0"
