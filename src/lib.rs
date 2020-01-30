@@ -244,8 +244,8 @@ where
 
         let mut adj_x = x;
         if self.flip {
-            y = (HEIGHT - 1) as u8 - (y + h);
-            adj_x = (WIDTH - 1) as u8 - (x + w);
+            y = HEIGHT as u8 - (y + h);
+            adj_x = WIDTH as u8 - (x + w);
         }
 
         let left = (adj_x / X_ADDR_DIV) * X_ADDR_DIV;
