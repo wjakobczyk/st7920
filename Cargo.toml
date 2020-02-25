@@ -25,7 +25,7 @@ cortex-m-semihosting = "0.3.3"
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.3"
 stm32f4 = { version = "0.8.0", features = ["stm32f407", "rt"] }
-stm32f4xx-hal = { version = "0.5.0", default-features = false, features = ["rt", "stm32f407"] }
+stm32f4xx-hal = { version = "0.6.0", default-features = false, features = ["rt", "stm32f407"] }
 
 
 [profile.release]
