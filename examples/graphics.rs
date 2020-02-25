@@ -45,7 +45,7 @@ fn main() -> ! {
                 polarity: Polarity::IdleLow,
                 phase: Phase::CaptureOnFirstTransition,
             },
-            stm32f4xx_hal::time::KiloHertz(1200).into(),
+            stm32f4xx_hal::time::KiloHertz(600).into(),
             clocks,
         );
 
