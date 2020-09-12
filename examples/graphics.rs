@@ -13,9 +13,13 @@ use hal::spi::*;
 use hal::stm32;
 use stm32f4xx_hal as hal;
 
-use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::Circle;
+use embedded_graphics::{
+    prelude::*,
+    fonts::{Font6x8, Text},
+    pixelcolor::BinaryColor,
+    primitives::Circle,
+    style::{PrimitiveStyle, TextStyle},
+};
 
 use st7920::ST7920;
 
@@ -54,14 +58,14 @@ fn main() -> ! {
         disp.init(&mut delay).expect("could not init display");
         disp.clear(&mut delay).expect("could not clear display");
 
-        disp.draw(
-            Circle::new(Point::new(30, 30), 15)
-                .stroke(Some(BinaryColor::On))
-                .into_iter(),
-        );
+        let c = Circle::new(Point::new(20, 20), 8).into_styled(PrimitiveStyle::with_fill(BinaryColor::On));
+        let t = Text::new("Hello Rust!", Point::new(40, 16))
+            .into_styled(TextStyle::new(Font6x8, BinaryColor::On));
 
-        disp.flush_region(15, 15, 14, 31, &mut delay)
-            .expect("could not flush display");
+        c.draw(&mut disp).unwrap();
+        t.draw(&mut disp).unwrap();
+
+        disp.flush( &mut delay).expect("could not flush display");
     }
 
     loop {
