@@ -37,8 +37,8 @@ enum Instruction {
     SetGraphicsAddress = 0x80,
 }
 
-pub const WIDTH: i32 = 128;
-pub const HEIGHT: i32 = 64;
+pub const WIDTH: u32 = 128;
+pub const HEIGHT: u32 = 64;
 const ROW_SIZE: usize = (WIDTH / 8) as usize;
 const BUFFER_SIZE: usize = ROW_SIZE * HEIGHT as usize;
 const X_ADDR_DIV: u8 = 16;
@@ -272,38 +272,45 @@ where
 }
 
 #[cfg(feature = "graphics")]
-extern crate embedded_graphics;
+use embedded_graphics;
+
 #[cfg(feature = "graphics")]
 use self::embedded_graphics::{
-    drawable,
-    pixelcolor::{
-        raw::{RawData, RawU1},
-        BinaryColor,
-    },
+    geometry::Point,
+    drawable::Pixel,
+    pixelcolor::BinaryColor,
     prelude::*,
-    Drawing,
+    DrawTarget,
 };
 
 #[cfg(feature = "graphics")]
-impl<SPI, CS, RST, PinError, SPIError> Drawing<BinaryColor> for ST7920<SPI, CS, RST>
+impl<SPI, CS, RST, PinError, SPIError> DrawTarget<BinaryColor> for ST7920<SPI, CS, RST>
 where
     SPI: spi::Write<u8, Error = SPIError>,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
-    fn draw<T>(&mut self, item_pixels: T)
-    where
-        T: IntoIterator<Item = drawable::Pixel<BinaryColor>>,
-    {
-        for drawable::Pixel(point, color) in item_pixels {
-            self.set_pixel(
-                point.x as u8,
-                point.y as u8,
-                RawU1::from(color).into_inner(),
-            );
+    type Error = core::convert::Infallible;
+
+    /// Draw a `Pixel` that has a color defined as `Gray8`.
+    fn draw_pixel(&mut self, pixel: Pixel<BinaryColor>) -> Result<(), Self::Error> {
+        let Pixel(coord, color) = pixel;
+        let x = coord.x as u8;
+        let y = coord.y as u8;
+        let c = match color { BinaryColor::Off => 0 , BinaryColor::On => 1 };
+        self.set_pixel(x, y, c);
+        Ok(())
+    }
+
+    fn size(&self) -> Size {
+        if self.flip {
+            Size::new(HEIGHT, WIDTH)
+        } else {
+            Size::new(WIDTH, HEIGHT)
         }
     }
 }
+
 
 impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
 where
