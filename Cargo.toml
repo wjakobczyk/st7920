@@ -9,7 +9,7 @@ keywords = ["no-std", "st7920", "lcd", "embedded", "embedded-hal-driver"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/wjakobczyk/st7920"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2018"
 
 [dependencies]
