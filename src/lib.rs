@@ -190,7 +190,7 @@ where
                 self.write_data(0)?;
             }
         }
-
+        self.buffer = [0; BUFFER_SIZE];
         self.disable_cs(delay)?;
         Ok(())
     }
