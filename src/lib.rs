@@ -275,39 +275,51 @@ where
 use embedded_graphics;
 
 #[cfg(feature = "graphics")]
-use self::embedded_graphics::{
-    geometry::Point,
-    drawable::Pixel,
-    pixelcolor::BinaryColor,
+use embedded_graphics::{
     prelude::*,
-    DrawTarget,
+    geometry::Point,
+    pixelcolor::BinaryColor,
+    draw_target::DrawTarget,
 };
 
 #[cfg(feature = "graphics")]
-impl<SPI, CS, RST, PinError, SPIError> DrawTarget<BinaryColor> for ST7920<SPI, CS, RST>
+impl<SPI, CS, RST, PinError, SPIError> OriginDimensions for ST7920<SPI, CS, RST>
+where
+    SPI: spi::Write<u8, Error = SPIError>,
+    RST: OutputPin<Error = PinError>,
+    CS: OutputPin<Error = PinError>,
+{
+    fn size(&self) -> Size {
+        match self.flip {
+            false => Size { width: WIDTH, height: HEIGHT },
+            true => Size { width: HEIGHT, height: WIDTH },
+        }
+    }
+}
+
+#[cfg(feature = "graphics")]
+impl<SPI, CS, RST, PinError, SPIError> DrawTarget for ST7920<SPI, CS, RST>
 where
     SPI: spi::Write<u8, Error = SPIError>,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
     type Error = core::convert::Infallible;
+    type Color = BinaryColor;
 
-    /// Draw a `Pixel` that has a color defined as `Gray8`.
-    fn draw_pixel(&mut self, pixel: Pixel<BinaryColor>) -> Result<(), Self::Error> {
-        let Pixel(coord, color) = pixel;
-        let x = coord.x as u8;
-        let y = coord.y as u8;
-        let c = match color { BinaryColor::Off => 0 , BinaryColor::On => 1 };
-        self.set_pixel(x, y, c);
-        Ok(())
-    }
-
-    fn size(&self) -> Size {
-        if self.flip {
-            Size::new(HEIGHT, WIDTH)
-        } else {
-            Size::new(WIDTH, HEIGHT)
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>
+    {
+        for p in pixels {
+            let Pixel(coord, color) = p;
+            let x = coord.x as u8;
+            let y = coord.y as u8;
+            let c = match color { BinaryColor::Off => 0 , BinaryColor::On => 1 };
+            self.set_pixel(x, y, c);
         }
+
+        Ok(())
     }
 }
 

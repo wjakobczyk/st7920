@@ -15,10 +15,10 @@ use stm32f4xx_hal as hal;
 
 use embedded_graphics::{
     prelude::*,
-    fonts::{Font6x8, Text},
     pixelcolor::BinaryColor,
-    primitives::Circle,
-    style::{PrimitiveStyle, TextStyle},
+    primitives::{Circle, PrimitiveStyle},
+    text::Text,
+    mono_font::{MonoTextStyle, ascii::FONT_6X9}
 };
 
 use st7920::ST7920;
@@ -58,9 +58,13 @@ fn main() -> ! {
         disp.init(&mut delay).expect("could not init display");
         disp.clear(&mut delay).expect("could not clear display");
 
-        let c = Circle::new(Point::new(20, 20), 8).into_styled(PrimitiveStyle::with_fill(BinaryColor::On));
-        let t = Text::new("Hello Rust!", Point::new(40, 16))
-            .into_styled(TextStyle::new(Font6x8, BinaryColor::On));
+        let c = Circle::new(Point::new(20, 20), 8)
+            .into_styled(PrimitiveStyle::with_fill(BinaryColor::On));
+        let t = Text::new(
+            "Hello Rust!",
+            Point::new(40, 16),
+            MonoTextStyle::new(&FONT_6X9, BinaryColor::On)
+        );
 
         c.draw(&mut disp).unwrap();
         t.draw(&mut disp).unwrap();
