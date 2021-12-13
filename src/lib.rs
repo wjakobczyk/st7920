@@ -225,7 +225,7 @@ where
         let end_gap = 8 - (right % 8);
 
         let mut row_start = y as usize * ROW_SIZE;
-        for y in y..y + h {
+        for _ in y..y + h {
             let start = left / 8 + 1;
             let end = right / 8;
 
@@ -309,18 +309,17 @@ where
         }
 
         let mut row_start = y as usize * ROW_SIZE;
+        self.set_address(adj_x, y)?;
         for y in y..(y + h) {
             self.set_address(adj_x, y)?;
 
             for x in left / 8..right / 8 {
                 self.write_data(self.buffer[row_start + x as usize])?;
-                //TODO send in a single SPI transaction
             }
 
             row_start += ROW_SIZE;
         }
 
-        self.set_address(0, 0)?;
         self.disable_cs(delay)?;
         Ok(())
     }
