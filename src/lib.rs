@@ -85,7 +85,7 @@ where
     fn enable_cs(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
             cs.set_high().map_err(Error::Pin)?;
-            delay.delay_us(1);
+            delay.delay_us(2);
         }
         Ok(())
     }
@@ -198,15 +198,51 @@ where
         self.flush(delay)?;
         Ok(())
     }
+
+    /// Flush buffer to update region of the display
+    pub fn clear_buffer_region(
+        &mut self,
+        x: u8,
+        mut y: u8,
+        w: u8,
+        h: u8,
+        delay: &mut dyn DelayUs<u32>,
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
 
-        for y in 0..HEIGHT as u8 / 2 {
-            self.set_address(0, y)?;
+        let mut adj_x = x;
+        if self.flip {
+            y = HEIGHT as u8 - (y + h);
+            adj_x = WIDTH as u8 - (x + w);
+        }
 
-            for _x in 0..ROW_SIZE {
-                self.write_data(0)?;
-                self.write_data(0)?;
+        let left = (adj_x / X_ADDR_DIV) * X_ADDR_DIV;
+        let start_gap = adj_x % 8;
+        let mut right = ((adj_x + w) / X_ADDR_DIV) * X_ADDR_DIV;
+        if right < adj_x + w {
+            right += X_ADDR_DIV; //make sure rightmost pixels are covered
+        }
+        let end_gap = 8 - (right % 8);
+
+        let mut row_start = y as usize * ROW_SIZE;
+        for y in y..y + h {
+            let start = left / 8 + 1;
+            let end = right / 8;
+
+            for x in start..end {
+                let mut mask = 0xFF_u8;
+                if x == start {
+                    mask = 0xFF_u8 >> start_gap;
+                }
+                if x == end {
+                    mask = mask & (0xFF_u8 << end_gap);
+                }
+
+                let pos = row_start + x as usize;
+                self.buffer[pos] &= !mask;
             }
+
+            row_start += ROW_SIZE;
         }
 
         self.disable_cs(delay)?;
@@ -273,7 +309,7 @@ where
         }
 
         let mut row_start = y as usize * ROW_SIZE;
-        for y in y..y + h {
+        for y in y..(y + h) {
             self.set_address(adj_x, y)?;
 
             for x in left / 8..right / 8 {
@@ -284,6 +320,7 @@ where
             row_start += ROW_SIZE;
         }
 
+        self.set_address(0, 0)?;
         self.disable_cs(delay)?;
         Ok(())
     }
