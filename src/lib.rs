@@ -191,8 +191,13 @@ where
             self.buffer[i] = 0;
         }
     }
+
     /// Clear whole display area
     pub fn clear(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
+        self.clear_buffer();
+        self.flush(delay)?;
+        Ok(())
+    }
         self.enable_cs(delay)?;
 
         for y in 0..HEIGHT as u8 / 2 {
