@@ -294,10 +294,7 @@ use embedded_graphics;
 
 #[cfg(feature = "graphics")]
 use embedded_graphics::{
-    prelude::*,
-    geometry::Point,
-    pixelcolor::BinaryColor,
-    draw_target::DrawTarget,
+    draw_target::DrawTarget, geometry::Point, pixelcolor::BinaryColor, prelude::*,
 };
 
 #[cfg(feature = "graphics")]
@@ -309,8 +306,14 @@ where
 {
     fn size(&self) -> Size {
         match self.flip {
-            false => Size { width: WIDTH, height: HEIGHT },
-            true => Size { width: HEIGHT, height: WIDTH },
+            false => Size {
+                width: WIDTH,
+                height: HEIGHT,
+            },
+            true => Size {
+                width: HEIGHT,
+                height: WIDTH,
+            },
         }
     }
 }
@@ -327,20 +330,22 @@ where
 
     fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
     where
-        I: IntoIterator<Item = Pixel<Self::Color>>
+        I: IntoIterator<Item = Pixel<Self::Color>>,
     {
         for p in pixels {
             let Pixel(coord, color) = p;
             let x = coord.x as u8;
             let y = coord.y as u8;
-            let c = match color { BinaryColor::Off => 0 , BinaryColor::On => 1 };
+            let c = match color {
+                BinaryColor::Off => 0,
+                BinaryColor::On => 1,
+            };
             self.set_pixel(x, y, c);
         }
 
         Ok(())
     }
 }
-
 
 impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
 where
