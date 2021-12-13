@@ -178,6 +178,19 @@ where
         Ok(())
     }
 
+    pub fn modify_buffer(&mut self, f: fn(x: u8, y: u8, v: u8) -> u8) {
+        for i in 0..BUFFER_SIZE {
+            let row = i / ROW_SIZE;
+            let column = i - (row * ROW_SIZE);
+            self.buffer[i] = f(column as u8, row as u8, self.buffer[i]);
+        }
+    }
+
+    pub fn clear_buffer(&mut self) {
+        for i in 0..BUFFER_SIZE {
+            self.buffer[i] = 0;
+        }
+    }
     /// Clear whole display area
     pub fn clear(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
