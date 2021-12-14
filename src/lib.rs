@@ -302,10 +302,13 @@ where
             adj_x = WIDTH as u8 - (x + w);
         }
 
-        let left = (adj_x / X_ADDR_DIV) * X_ADDR_DIV;
-        let mut right = ((adj_x + w) / X_ADDR_DIV) * X_ADDR_DIV;
-        if right < adj_x + w {
-            right += X_ADDR_DIV; //make sure rightmost pixels are covered
+        let mut left = adj_x - adj_x % X_ADDR_DIV;
+        let mut right = (adj_x + w) - 1;
+        right -= right % X_ADDR_DIV;
+        right += X_ADDR_DIV;
+
+        if left > adj_x {
+            left -= X_ADDR_DIV; //make sure rightmost pixels are covered
         }
 
         let mut row_start = y as usize * ROW_SIZE;
@@ -341,15 +344,9 @@ where
     CS: OutputPin<Error = PinError>,
 {
     fn size(&self) -> Size {
-        match self.flip {
-            false => Size {
-                width: WIDTH,
-                height: HEIGHT,
-            },
-            true => Size {
-                width: HEIGHT,
-                height: WIDTH,
-            },
+        Size {
+            width: WIDTH,
+            height: HEIGHT,
         }
     }
 }
@@ -383,6 +380,7 @@ where
     }
 }
 
+#[cfg(feature = "graphics")]
 impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
 where
     SPI: spi::Write<u8, Error = SPIError>,
