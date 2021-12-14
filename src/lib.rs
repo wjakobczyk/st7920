@@ -216,26 +216,25 @@ where
             adj_x = WIDTH as u8 - (x + w);
         }
 
-        let left = (adj_x / X_ADDR_DIV) * X_ADDR_DIV;
+        let start = adj_x / 8;
+        let mut right = adj_x + w;
+        let end = (right / 8) + 1;
+
         let start_gap = adj_x % 8;
-        let mut right = ((adj_x + w) / X_ADDR_DIV) * X_ADDR_DIV;
-        if right < adj_x + w {
-            right += X_ADDR_DIV; //make sure rightmost pixels are covered
-        }
+
+        right = end * 8;
+
         let end_gap = 8 - (right % 8);
 
         let mut row_start = y as usize * ROW_SIZE;
         for _ in y..y + h {
-            let start = left / 8 + 1;
-            let end = right / 8;
-
             for x in start..end {
                 let mut mask = 0xFF_u8;
                 if x == start {
                     mask = 0xFF_u8 >> start_gap;
                 }
                 if x == end {
-                    mask = mask & (0xFF_u8 << end_gap);
+                    mask &= 0xFF_u8 >> end_gap;
                 }
 
                 let pos = row_start + x as usize;
