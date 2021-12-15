@@ -85,7 +85,7 @@ where
     fn enable_cs(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
             cs.set_high().map_err(Error::Pin)?;
-            delay.delay_us(2);
+            delay.delay_us(1);
         }
         Ok(())
     }
@@ -178,6 +178,17 @@ where
         Ok(())
     }
 
+    /// .
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use st7920::ST7920;
+    ///
+    /// let mut st7920 = ;
+    /// st7920.modify_buffer(f);
+    /// assert_eq!(st7920, );
+    /// ```
     pub fn modify_buffer(&mut self, f: fn(x: u8, y: u8, v: u8) -> u8) {
         for i in 0..BUFFER_SIZE {
             let row = i / ROW_SIZE;
