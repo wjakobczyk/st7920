@@ -69,7 +69,16 @@ where
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
-    /// Create a new driver instance that uses SPI connection.
+    /// Create a new [`ST7920<SPI, RST, CS>`] driver instance that uses SPI connection.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use st7920::ST7920;
+    ///
+    /// let result = ST7920::new(spi, GPIO::new(pins.p01), None, false);
+    /// assert_eq!(result, );
+    /// ```
     pub fn new(spi: SPI, rst: RST, cs: Option<CS>, flip: bool) -> Self {
         let buffer = [0; BUFFER_SIZE];
 
@@ -178,16 +187,21 @@ where
         Ok(())
     }
 
-    /// .
+    /// Modify the raw buffer. 1 byte (u8) = 8 pixels
     ///
     /// # Examples
     ///
-    /// ```
-    /// use st7920::ST7920;
-    ///
-    /// let mut st7920 = ;
-    /// st7920.modify_buffer(f);
-    /// assert_eq!(st7920, );
+    /// ```no_run
+    /// let mut st7920 = st7920::ST7920(...);
+    /// // add crazy pattern
+    /// st7920.modify_buffer(|x, y, v| {
+    ///     if x % 2 == y % 2 {
+    ///         v | 0b10101010
+    ///     } else {
+    ///         v
+    ///     }
+    /// });
+    /// st7920.flush();
     /// ```
     pub fn modify_buffer(&mut self, f: fn(x: u8, y: u8, v: u8) -> u8) {
         for i in 0..BUFFER_SIZE {
@@ -197,13 +211,14 @@ where
         }
     }
 
+    /// clears the buffer but don't update the display
     pub fn clear_buffer(&mut self) {
         for i in 0..BUFFER_SIZE {
             self.buffer[i] = 0;
         }
     }
 
-    /// Clear whole display area
+    /// Clear whole display area and clears the buffer
     pub fn clear(&mut self, delay: &mut dyn DelayUs<u32>) -> Result<(), Error<SPIError, PinError>> {
         self.clear_buffer();
         self.flush(delay)?;
@@ -260,6 +275,8 @@ where
     }
 
     /// Draw pixel
+    ///
+    /// Supported values are 0 and (not 0)
     pub fn set_pixel(&mut self, mut x: u8, mut y: u8, val: u8) {
         if self.flip {
             y = (HEIGHT - 1) as u8 - y;
@@ -339,11 +356,8 @@ where
 }
 
 #[cfg(feature = "graphics")]
-use embedded_graphics;
-
-#[cfg(feature = "graphics")]
 use embedded_graphics::{
-    draw_target::DrawTarget, geometry::Point, pixelcolor::BinaryColor, prelude::*,
+    self, draw_target::DrawTarget, geometry::Point, pixelcolor::BinaryColor, prelude::*,
 };
 
 #[cfg(feature = "graphics")]
