@@ -269,7 +269,7 @@ where
 
             row_start += ROW_SIZE;
         }
-
+        self.buffer = [0; BUFFER_SIZE];
         self.disable_cs(delay)?;
         Ok(())
     }
