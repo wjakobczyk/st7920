@@ -253,69 +253,102 @@ where
         Ok(())
     }
 
-    /// Flush buffer to update region of the display
+    /// Clear a buffer region.
+    ///
+    /// If the region is completely off screen,
+    /// nothing will be done and Ok()) will be returned.
+    /// If the given width or height are too big,
+    /// width and height will be trimmed to the screen dimensions.
     pub fn clear_buffer_region<DelayError, Delay: DelayUs<Error = DelayError>>(
         &mut self,
         x: u8,
         mut y: u8,
-        w: u8,
-        h: u8,
+        mut w: u8,
+        mut h: u8,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError, DelayError>> {
-        self.enable_cs(delay)?;
-
-        let mut adj_x = x;
-        if self.flip {
-            y = HEIGHT as u8 - (y + h);
-            adj_x = WIDTH as u8 - (x + w);
-        }
-
-        let start = adj_x / 8;
-        let mut right = adj_x + w;
-        let end = (right / 8) + 1;
-
-        let start_gap = adj_x % 8;
-
-        right = end * 8;
-
-        let end_gap = 8 - (right % 8);
-
-        let mut row_start = y as usize * ROW_SIZE;
-        for _ in y..y + h {
-            for x in start..end {
-                let mut mask = 0xFF_u8;
-                if x == start {
-                    mask = 0xFF_u8 >> start_gap;
-                }
-                if x == end {
-                    mask &= 0xFF_u8 >> end_gap;
-                }
-
-                let pos = row_start + x as usize;
-                self.buffer[pos] &= !mask;
+        // Top-left is on screen and region has a width/height?
+        if x < WIDTH as u8 && y < HEIGHT as u8 && w > 0 && h > 0 {
+            // Limit width and height to right and bottom edge.
+            if x.saturating_add(w) > WIDTH as u8 {
+                w = WIDTH as u8 - x;
+            }
+            if y.saturating_add(h) > HEIGHT as u8 {
+                h = HEIGHT as u8 - y;
             }
 
-            row_start += ROW_SIZE;
-        }
+            self.enable_cs(delay)?;
 
-        self.disable_cs(delay)?;
+            let mut adj_x = x;
+            if self.flip {
+                y = HEIGHT as u8 - (y + h);
+                adj_x = WIDTH as u8 - (x + w);
+            }
+
+            let start = adj_x / 8;
+            let mut right = adj_x + w;
+            let end = (right / 8) + 1;
+
+            let start_gap = adj_x % 8;
+
+            right = end * 8;
+
+            let end_gap = 8 - (right % 8);
+
+            let mut row_start = y as usize * ROW_SIZE;
+            for _ in y..y + h {
+                for x in start..end {
+                    let mut mask = 0xFF_u8;
+                    if x == start {
+                        mask = 0xFF_u8 >> start_gap;
+                    }
+                    if x == end {
+                        mask &= 0xFF_u8 >> end_gap;
+                    }
+
+                    let pos = row_start + x as usize;
+                    self.buffer[pos] &= !mask;
+                }
+
+                row_start += ROW_SIZE;
+            }
+
+            self.disable_cs(delay)?;
+        }
         Ok(())
     }
 
     /// Draw pixel
     ///
+    /// Doesn't draw anything, if the x or y coordinates are off canvas.
+    ///
     /// Supported values are 0 and (not 0)
-    pub fn set_pixel(&mut self, mut x: u8, mut y: u8, val: u8) {
+    #[inline]
+    pub fn set_pixel(&mut self, x: u8, y: u8, val: u8) {
+        if x < WIDTH as u8 && y < HEIGHT as u8 {
+            self.set_pixel_unchecked(x, y, val);
+        }
+    }
+
+    /// Draw pixel without canvas bounds checking.
+    ///
+    /// Supported values are 0 and (not 0)
+    ///
+    /// # Panics
+    ///
+    /// May panic or draw to undefined pixels, if x or y coordinates are off canvas.
+    #[inline]
+    pub fn set_pixel_unchecked(&mut self, mut x: u8, mut y: u8, val: u8) {
         if self.flip {
             y = (HEIGHT - 1) as u8 - y;
             x = (WIDTH - 1) as u8 - x;
         }
-
+        let idx = y as usize * ROW_SIZE + x as usize / 8;
         let x_mask = 0x80 >> (x % 8);
         if val != 0 {
-            self.buffer[y as usize * ROW_SIZE + x as usize / 8] |= x_mask;
+            self.buffer[idx] |= x_mask;
         } else {
-            self.buffer[y as usize * ROW_SIZE + x as usize / 8] &= !x_mask;
+            self.buffer[idx] &= !x_mask;
         }
     }
 
@@ -344,44 +377,60 @@ where
     }
 
     /// Flush buffer to update region of the display
+    ///
+    /// If the region is completely off screen,
+    /// nothing will be done and Ok()) will be returned.
+    /// If the given width or height are too big,
+    /// width and height will be trimmed to the screen dimensions.
     pub fn flush_region<DelayError, Delay: DelayUs<Error = DelayError>>(
         &mut self,
         x: u8,
         mut y: u8,
-        w: u8,
-        h: u8,
+        mut w: u8,
+        mut h: u8,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError, DelayError>> {
-        self.enable_cs(delay)?;
-
-        let mut adj_x = x;
-        if self.flip {
-            y = HEIGHT as u8 - (y + h);
-            adj_x = WIDTH as u8 - (x + w);
-        }
-
-        let mut left = adj_x - adj_x % X_ADDR_DIV;
-        let mut right = (adj_x + w) - 1;
-        right -= right % X_ADDR_DIV;
-        right += X_ADDR_DIV;
-
-        if left > adj_x {
-            left -= X_ADDR_DIV; //make sure rightmost pixels are covered
-        }
-
-        let mut row_start = y as usize * ROW_SIZE;
-        self.set_address(adj_x, y, delay)?;
-        for y in y..(y + h) {
-            self.set_address(adj_x, y, delay)?;
-
-            for x in left / 8..right / 8 {
-                self.write_data(self.buffer[row_start + x as usize], delay)?;
+        // Top-left is on screen and region has a width/height?
+        if x < WIDTH as u8 && y < HEIGHT as u8 && w > 0 && h > 0 {
+            // Limit width and height to right and bottom edge.
+            if x.saturating_add(w) > WIDTH as u8 {
+                w = WIDTH as u8 - x;
+            }
+            if y.saturating_add(h) > HEIGHT as u8 {
+                h = HEIGHT as u8 - y;
             }
 
-            row_start += ROW_SIZE;
-        }
+            self.enable_cs(delay)?;
 
-        self.disable_cs(delay)?;
+            let mut adj_x = x;
+            if self.flip {
+                y = HEIGHT as u8 - (y + h);
+                adj_x = WIDTH as u8 - (x + w);
+            }
+
+            let mut left = adj_x - adj_x % X_ADDR_DIV;
+            let mut right = (adj_x + w) - 1;
+            right -= right % X_ADDR_DIV;
+            right += X_ADDR_DIV;
+
+            if left > adj_x {
+                left -= X_ADDR_DIV; //make sure rightmost pixels are covered
+            }
+
+            let mut row_start = y as usize * ROW_SIZE;
+            self.set_address(adj_x, y, delay)?;
+            for y in y..(y + h) {
+                self.set_address(adj_x, y, delay)?;
+
+                for x in left / 8..right / 8 {
+                    self.write_data(self.buffer[row_start + x as usize], delay)?;
+                }
+
+                row_start += ROW_SIZE;
+            }
+
+            self.disable_cs(delay)?;
+        }
         Ok(())
     }
 }
@@ -424,13 +473,22 @@ where
     {
         for p in pixels {
             let Pixel(coord, color) = p;
-            let x = coord.x as u8;
-            let y = coord.y as u8;
-            let c = match color {
-                BinaryColor::Off => 0,
-                BinaryColor::On => 1,
-            };
-            self.set_pixel(x, y, c);
+
+            #[cfg(not(feature = "graphics-unchecked"))]
+            let in_bounds = coord.x >= 0 && coord.x < WIDTH as i32 &&
+                            coord.y >= 0 && coord.y < HEIGHT as i32;
+            #[cfg(feature = "graphics-unchecked")]
+            let in_bounds = true;
+
+            if in_bounds {
+                let x = coord.x as u8;
+                let y = coord.y as u8;
+                let c = match color {
+                    BinaryColor::Off => 0,
+                    BinaryColor::On => 1,
+                };
+                self.set_pixel_unchecked(x, y, c);
+            }
         }
 
         Ok(())
@@ -450,12 +508,25 @@ where
         region: (Point, Size),
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError, DelayError>> {
-        self.flush_region(
-            region.0.x as u8,
-            region.0.y as u8,
-            region.1.width as u8,
-            region.1.height as u8,
-            delay,
-        )
+        let mut width: u32 = region.1.width;
+        let mut height: u32 = region.1.height;
+        let mut x: i32 = region.0.x;
+        let mut y: i32 = region.0.y;
+        // Trim negative x position to zero. Reduce width accordingly.
+        if x < 0 {
+            width = width.saturating_sub((-x) as u32);
+            x = 0;
+        }
+        // Trim negative y position to zero. Reduce height accordingly.
+        if y < 0 {
+            height = height.saturating_sub((-y) as u32);
+            y = 0;
+        }
+        // Trim x, y, width and height to u8 range.
+        x = x.min(u8::MAX as i32);
+        y = y.min(u8::MAX as i32);
+        width = width.min(u8::MAX as u32);
+        height = height.min(u8::MAX as u32);
+        self.flush_region(x as u8, y as u8, width as u8, height as u8, delay)
     }
 }
