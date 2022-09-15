@@ -35,3 +35,4 @@ lto = true
 [features]
 default = ["graphics"]
 graphics = ["embedded-graphics"]
+graphics-unchecked = ["graphics"]
