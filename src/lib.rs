@@ -265,7 +265,7 @@ where
         mut y: u8,
         mut w: u8,
         mut h: u8,
-        delay: &mut Delay,
+        _delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError, DelayError>> {
         // Top-left is on screen and region has a width/height?
         if x < WIDTH as u8 && y < HEIGHT as u8 && w > 0 && h > 0 {
@@ -276,8 +276,6 @@ where
             if y.saturating_add(h) > HEIGHT as u8 {
                 h = HEIGHT as u8 - y;
             }
-
-            self.enable_cs(delay)?;
 
             let mut adj_x = x;
             if self.flip {
@@ -312,8 +310,6 @@ where
 
                 row_start += ROW_SIZE;
             }
-
-            self.disable_cs(delay)?;
         }
         Ok(())
     }
