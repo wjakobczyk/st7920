@@ -15,9 +15,9 @@
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 
-use embedded_hal::delay::blocking::DelayUs;
-use embedded_hal::spi::blocking::{SpiDevice, SpiBusWrite};
-use embedded_hal::digital::blocking::OutputPin;
+use embedded_hal::delay::DelayUs;
+use embedded_hal::spi::{SpiDevice, SpiBusWrite};
+use embedded_hal::digital::OutputPin;
 
 #[derive(Debug)]
 pub enum Error<CommError, PinError, DelayError> {
