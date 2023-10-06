@@ -16,14 +16,13 @@ use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 
 use embedded_hal::delay::DelayUs;
-use embedded_hal::spi::{SpiDevice, SpiBusWrite};
+use embedded_hal::spi::SpiDevice;
 use embedded_hal::digital::OutputPin;
 
 #[derive(Debug)]
-pub enum Error<CommError, PinError, DelayError> {
+pub enum Error<CommError, PinError> {
     Comm(CommError),
     Pin(PinError),
-    Delay(DelayError),
 }
 
 /// ST7920 instructions.
@@ -47,7 +46,6 @@ const X_ADDR_DIV: u8 = 16;
 pub struct ST7920<SPI, RST, CS>
 where
     SPI: SpiDevice,
-    SPI::Bus: SpiBusWrite,
     RST: OutputPin,
     CS: OutputPin,
 {
@@ -68,7 +66,6 @@ where
 impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
 where
     SPI: SpiDevice<Error = SPIError>,
-    SPI::Bus: SpiBusWrite,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
@@ -94,77 +91,77 @@ where
         }
     }
 
-    fn enable_cs<DelayError, Delay: DelayUs<Error = DelayError>>(
+    fn enable_cs<Delay: DelayUs>(
         &mut self,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
             cs.set_high().map_err(Error::Pin)?;
-            delay.delay_us(1).map_err(Error::Delay)?;
+            delay.delay_us(1);
         }
         Ok(())
     }
 
-    fn disable_cs<DelayError, Delay: DelayUs<Error = DelayError>>(
+    fn disable_cs<Delay: DelayUs>(
         &mut self,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
-            delay.delay_us(1).map_err(Error::Delay)?;
+            delay.delay_us(1);
             cs.set_high().map_err(Error::Pin)?;
         }
         Ok(())
     }
 
     /// Initialize the display controller
-    pub fn init<DelayError: core::fmt::Debug, Delay: DelayUs<Error = DelayError>>(
+    pub fn init<Delay: DelayUs>(
         &mut self,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
         self.hard_reset(delay)?;
         self.write_command(Instruction::BasicFunction, delay)?;
-        delay.delay_us(200).map_err(Error::Delay)?;
+        delay.delay_us(200);
         self.write_command(Instruction::DisplayOnCursorOff, delay)?;
-        delay.delay_us(100).map_err(Error::Delay)?;
+        delay.delay_us(100);
         self.write_command(Instruction::ClearScreen, delay)?;
-        delay.delay_us(10 * 1000).map_err(Error::Delay)?;
+        delay.delay_us(10 * 1000);
         self.write_command(Instruction::EntryMode, delay)?;
-        delay.delay_us(100).map_err(Error::Delay)?;
+        delay.delay_us(100);
         self.write_command(Instruction::ExtendedFunction, delay)?;
-        delay.delay_us(10 * 1000).map_err(Error::Delay)?;
+        delay.delay_us(10 * 1000);
         self.write_command(Instruction::GraphicsOn, delay)?;
-        delay.delay_us(100 * 1000).map_err(Error::Delay)?;
+        delay.delay_us(100 * 1000);
 
         self.disable_cs(delay)?;
         Ok(())
     }
 
-    fn hard_reset<DelayError, Delay: DelayUs<Error = DelayError>>(
+    fn hard_reset<Delay: DelayUs>(
         &mut self,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.rst.set_low().map_err(Error::Pin)?;
-        delay.delay_us(40 * 1000).map_err(Error::Delay)?;
+        delay.delay_us(40 * 1000);
         self.rst.set_high().map_err(Error::Pin)?;
-        delay.delay_us(40 * 1000).map_err(Error::Delay)?;
+        delay.delay_us(40 * 1000);
         Ok(())
     }
 
-    fn write_command<DelayError: core::fmt::Debug, Delay: DelayUs<Error = DelayError>>(
+    fn write_command<Delay: DelayUs>(
         &mut self,
         command: Instruction,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.write_command_param(command, 0, delay)
     }
 
-    fn write_command_param<DelayError, Delay: DelayUs<Error = DelayError>>(
+    fn write_command_param<Delay: DelayUs>(
         &mut self,
         command: Instruction,
         param: u8,
         _delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         let command_param = command.to_u8().unwrap() | param;
         let cmd: u8 = 0xF8;
 
@@ -175,23 +172,23 @@ where
         Ok(())
     }
 
-    fn write_data<DelayError, Delay: DelayUs<Error = DelayError>>(
+    fn write_data<Delay: DelayUs>(
         &mut self,
         data: u8,
         _delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.spi
             .write(&[0xFA, data & 0xF0, (data << 4) & 0xF0])
             .map_err(Error::Comm)?;
         Ok(())
     }
 
-    fn set_address<DelayError, Delay: DelayUs<Error = DelayError>>(
+    fn set_address<Delay: DelayUs>(
         &mut self,
         x: u8,
         y: u8,
         delay: &mut Delay
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         const HALF_HEIGHT: u8 = HEIGHT as u8 / 2;
 
         self.write_command_param(
@@ -244,10 +241,10 @@ where
     }
 
     /// Clear whole display area and clears the buffer
-    pub fn clear<DelayError, Delay: DelayUs<Error = DelayError>>(
+    pub fn clear<Delay: DelayUs>(
         &mut self,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.clear_buffer();
         self.flush(delay)?;
         Ok(())
@@ -259,14 +256,14 @@ where
     /// nothing will be done and Ok()) will be returned.
     /// If the given width or height are too big,
     /// width and height will be trimmed to the screen dimensions.
-    pub fn clear_buffer_region<DelayError, Delay: DelayUs<Error = DelayError>>(
+    pub fn clear_buffer_region<Delay: DelayUs>(
         &mut self,
         x: u8,
         mut y: u8,
         mut w: u8,
         mut h: u8,
         _delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         // Top-left is on screen and region has a width/height?
         if x < WIDTH as u8 && y < HEIGHT as u8 && w > 0 && h > 0 {
             // Limit width and height to right and bottom edge.
@@ -349,10 +346,10 @@ where
     }
 
     /// Flush buffer to update entire display
-    pub fn flush<DelayError, Delay: DelayUs<Error = DelayError>>(
+    pub fn flush<Delay: DelayUs>(
         &mut self,
         delay: &mut Delay
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
 
         for y in 0..HEIGHT as u8 / 2 {
@@ -378,14 +375,14 @@ where
     /// nothing will be done and Ok()) will be returned.
     /// If the given width or height are too big,
     /// width and height will be trimmed to the screen dimensions.
-    pub fn flush_region<DelayError, Delay: DelayUs<Error = DelayError>>(
+    pub fn flush_region<Delay: DelayUs>(
         &mut self,
         x: u8,
         mut y: u8,
         mut w: u8,
         mut h: u8,
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         // Top-left is on screen and region has a width/height?
         if x < WIDTH as u8 && y < HEIGHT as u8 && w > 0 && h > 0 {
             // Limit width and height to right and bottom edge.
@@ -440,7 +437,6 @@ use embedded_graphics::{
 impl<SPI, CS, RST, PinError, SPIError> OriginDimensions for ST7920<SPI, CS, RST>
 where
     SPI: SpiDevice<Error = SPIError>,
-    SPI::Bus: SpiBusWrite,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
@@ -456,7 +452,6 @@ where
 impl<SPI, CS, RST, PinError, SPIError> DrawTarget for ST7920<SPI, CS, RST>
 where
     SPI: SpiDevice<Error = SPIError>,
-    SPI::Bus: SpiBusWrite,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
@@ -495,15 +490,14 @@ where
 impl<SPI, RST, CS, PinError, SPIError> ST7920<SPI, RST, CS>
 where
     SPI: SpiDevice<Error = SPIError>,
-    SPI::Bus: SpiBusWrite,
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
-    pub fn flush_region_graphics<DelayError, Delay: DelayUs<Error = DelayError>>(
+    pub fn flush_region_graphics<Delay: DelayUs>(
         &mut self,
         region: (Point, Size),
         delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError, DelayError>> {
+    ) -> Result<(), Error<SPIError, PinError>> {
         let mut width: u32 = region.1.width;
         let mut height: u32 = region.1.height;
         let mut x: i32 = region.0.x;
