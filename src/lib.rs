@@ -15,7 +15,7 @@
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 
-use embedded_hal::delay::DelayUs;
+use embedded_hal::delay::DelayNs;
 use embedded_hal::spi::SpiDevice;
 use embedded_hal::digital::OutputPin;
 
@@ -91,7 +91,7 @@ where
         }
     }
 
-    fn enable_cs<Delay: DelayUs>(
+    fn enable_cs<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
@@ -102,7 +102,7 @@ where
         Ok(())
     }
 
-    fn disable_cs<Delay: DelayUs>(
+    fn disable_cs<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
@@ -114,7 +114,7 @@ where
     }
 
     /// Initialize the display controller
-    pub fn init<Delay: DelayUs>(
+    pub fn init<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
@@ -125,30 +125,30 @@ where
         self.write_command(Instruction::DisplayOnCursorOff, delay)?;
         delay.delay_us(100);
         self.write_command(Instruction::ClearScreen, delay)?;
-        delay.delay_us(10 * 1000);
+        delay.delay_ms(10);
         self.write_command(Instruction::EntryMode, delay)?;
         delay.delay_us(100);
         self.write_command(Instruction::ExtendedFunction, delay)?;
-        delay.delay_us(10 * 1000);
+        delay.delay_ms(10);
         self.write_command(Instruction::GraphicsOn, delay)?;
-        delay.delay_us(100 * 1000);
+        delay.delay_ms(100);
 
         self.disable_cs(delay)?;
         Ok(())
     }
 
-    fn hard_reset<Delay: DelayUs>(
+    fn hard_reset<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
         self.rst.set_low().map_err(Error::Pin)?;
-        delay.delay_us(40 * 1000);
+        delay.delay_ms(40);
         self.rst.set_high().map_err(Error::Pin)?;
-        delay.delay_us(40 * 1000);
+        delay.delay_ms(40);
         Ok(())
     }
 
-    fn write_command<Delay: DelayUs>(
+    fn write_command<Delay: DelayNs>(
         &mut self,
         command: Instruction,
         delay: &mut Delay,
@@ -156,7 +156,7 @@ where
         self.write_command_param(command, 0, delay)
     }
 
-    fn write_command_param<Delay: DelayUs>(
+    fn write_command_param<Delay: DelayNs>(
         &mut self,
         command: Instruction,
         param: u8,
@@ -172,7 +172,7 @@ where
         Ok(())
     }
 
-    fn write_data<Delay: DelayUs>(
+    fn write_data<Delay: DelayNs>(
         &mut self,
         data: u8,
         _delay: &mut Delay,
@@ -183,7 +183,7 @@ where
         Ok(())
     }
 
-    fn set_address<Delay: DelayUs>(
+    fn set_address<Delay: DelayNs>(
         &mut self,
         x: u8,
         y: u8,
@@ -241,7 +241,7 @@ where
     }
 
     /// Clear whole display area and clears the buffer
-    pub fn clear<Delay: DelayUs>(
+    pub fn clear<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
@@ -256,7 +256,7 @@ where
     /// nothing will be done and Ok()) will be returned.
     /// If the given width or height are too big,
     /// width and height will be trimmed to the screen dimensions.
-    pub fn clear_buffer_region<Delay: DelayUs>(
+    pub fn clear_buffer_region<Delay: DelayNs>(
         &mut self,
         x: u8,
         mut y: u8,
@@ -346,7 +346,7 @@ where
     }
 
     /// Flush buffer to update entire display
-    pub fn flush<Delay: DelayUs>(
+    pub fn flush<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay
     ) -> Result<(), Error<SPIError, PinError>> {
@@ -375,7 +375,7 @@ where
     /// nothing will be done and Ok()) will be returned.
     /// If the given width or height are too big,
     /// width and height will be trimmed to the screen dimensions.
-    pub fn flush_region<Delay: DelayUs>(
+    pub fn flush_region<Delay: DelayNs>(
         &mut self,
         x: u8,
         mut y: u8,
@@ -493,7 +493,7 @@ where
     RST: OutputPin<Error = PinError>,
     CS: OutputPin<Error = PinError>,
 {
-    pub fn flush_region_graphics<Delay: DelayUs>(
+    pub fn flush_region_graphics<Delay: DelayNs>(
         &mut self,
         region: (Point, Size),
         delay: &mut Delay,
