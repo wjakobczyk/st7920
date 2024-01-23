@@ -120,17 +120,17 @@ where
     ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
         self.hard_reset(delay)?;
-        self.write_command(Instruction::BasicFunction, delay)?;
+        self.write_command(Instruction::BasicFunction)?;
         delay.delay_us(200);
-        self.write_command(Instruction::DisplayOnCursorOff, delay)?;
+        self.write_command(Instruction::DisplayOnCursorOff)?;
         delay.delay_us(100);
-        self.write_command(Instruction::ClearScreen, delay)?;
+        self.write_command(Instruction::ClearScreen)?;
         delay.delay_ms(10);
-        self.write_command(Instruction::EntryMode, delay)?;
+        self.write_command(Instruction::EntryMode)?;
         delay.delay_us(100);
-        self.write_command(Instruction::ExtendedFunction, delay)?;
+        self.write_command(Instruction::ExtendedFunction)?;
         delay.delay_ms(10);
-        self.write_command(Instruction::GraphicsOn, delay)?;
+        self.write_command(Instruction::GraphicsOn)?;
         delay.delay_ms(100);
 
         self.disable_cs(delay)?;
@@ -148,19 +148,17 @@ where
         Ok(())
     }
 
-    fn write_command<Delay: DelayNs>(
+    fn write_command(
         &mut self,
         command: Instruction,
-        delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
-        self.write_command_param(command, 0, delay)
+        self.write_command_param(command, 0)
     }
 
-    fn write_command_param<Delay: DelayNs>(
+    fn write_command_param(
         &mut self,
         command: Instruction,
         param: u8,
-        _delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
         let command_param = command.to_u8().unwrap() | param;
         let cmd: u8 = 0xF8;
@@ -172,10 +170,9 @@ where
         Ok(())
     }
 
-    fn write_data<Delay: DelayNs>(
+    fn write_data(
         &mut self,
         data: u8,
-        _delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
         self.spi
             .write(&[0xFA, data & 0xF0, (data << 4) & 0xF0])
@@ -183,18 +180,16 @@ where
         Ok(())
     }
 
-    fn set_address<Delay: DelayNs>(
+    fn set_address(
         &mut self,
         x: u8,
         y: u8,
-        delay: &mut Delay
     ) -> Result<(), Error<SPIError, PinError>> {
         const HALF_HEIGHT: u8 = HEIGHT as u8 / 2;
 
         self.write_command_param(
             Instruction::SetGraphicsAddress,
             if y < HALF_HEIGHT { y } else { y - HALF_HEIGHT },
-            delay,
         )?;
         self.write_command_param(
             Instruction::SetGraphicsAddress,
@@ -203,7 +198,6 @@ where
             } else {
                 x / X_ADDR_DIV + (WIDTH as u8 / X_ADDR_DIV)
             },
-            delay,
         )?;
 
         Ok(())
@@ -256,13 +250,12 @@ where
     /// nothing will be done and Ok()) will be returned.
     /// If the given width or height are too big,
     /// width and height will be trimmed to the screen dimensions.
-    pub fn clear_buffer_region<Delay: DelayNs>(
+    pub fn clear_buffer_region(
         &mut self,
         x: u8,
         mut y: u8,
         mut w: u8,
         mut h: u8,
-        _delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
         // Top-left is on screen and region has a width/height?
         if x < WIDTH as u8 && y < HEIGHT as u8 && w > 0 && h > 0 {
@@ -353,15 +346,15 @@ where
         self.enable_cs(delay)?;
 
         for y in 0..HEIGHT as u8 / 2 {
-            self.set_address(0, y, delay)?;
+            self.set_address(0, y)?;
 
             let mut row_start = y as usize * ROW_SIZE;
             for x in 0..ROW_SIZE {
-                self.write_data(self.buffer[row_start + x], delay)?;
+                self.write_data(self.buffer[row_start + x])?;
             }
             row_start += (HEIGHT as usize / 2) * ROW_SIZE;
             for x in 0..ROW_SIZE {
-                self.write_data(self.buffer[row_start + x], delay)?;
+                self.write_data(self.buffer[row_start + x])?;
             }
         }
 
@@ -411,12 +404,12 @@ where
             }
 
             let mut row_start = y as usize * ROW_SIZE;
-            self.set_address(adj_x, y, delay)?;
+            self.set_address(adj_x, y)?;
             for y in y..(y + h) {
-                self.set_address(adj_x, y, delay)?;
+                self.set_address(adj_x, y)?;
 
                 for x in left / 8..right / 8 {
-                    self.write_data(self.buffer[row_start + x as usize], delay)?;
+                    self.write_data(self.buffer[row_start + x as usize])?;
                 }
 
                 row_start += ROW_SIZE;
