@@ -16,8 +16,8 @@ use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 
 use embedded_hal::delay::DelayNs;
-use embedded_hal::spi::SpiDevice;
 use embedded_hal::digital::OutputPin;
+use embedded_hal::spi::SpiDevice;
 
 #[derive(Debug)]
 pub enum Error<CommError, PinError> {
@@ -148,10 +148,7 @@ where
         Ok(())
     }
 
-    fn write_command(
-        &mut self,
-        command: Instruction,
-    ) -> Result<(), Error<SPIError, PinError>> {
+    fn write_command(&mut self, command: Instruction) -> Result<(), Error<SPIError, PinError>> {
         self.write_command_param(command, 0)
     }
 
@@ -170,21 +167,14 @@ where
         Ok(())
     }
 
-    fn write_data(
-        &mut self,
-        data: u8,
-    ) -> Result<(), Error<SPIError, PinError>> {
+    fn write_data(&mut self, data: u8) -> Result<(), Error<SPIError, PinError>> {
         self.spi
             .write(&[0xFA, data & 0xF0, (data << 4) & 0xF0])
             .map_err(Error::Comm)?;
         Ok(())
     }
 
-    fn set_address(
-        &mut self,
-        x: u8,
-        y: u8,
-    ) -> Result<(), Error<SPIError, PinError>> {
+    fn set_address(&mut self, x: u8, y: u8) -> Result<(), Error<SPIError, PinError>> {
         const HALF_HEIGHT: u8 = HEIGHT as u8 / 2;
 
         self.write_command_param(
@@ -341,7 +331,7 @@ where
     /// Flush buffer to update entire display
     pub fn flush<Delay: DelayNs>(
         &mut self,
-        delay: &mut Delay
+        delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
         self.enable_cs(delay)?;
 
@@ -459,8 +449,8 @@ where
             let Pixel(coord, color) = p;
 
             #[cfg(not(feature = "graphics-unchecked"))]
-            let in_bounds = coord.x >= 0 && coord.x < WIDTH as i32 &&
-                            coord.y >= 0 && coord.y < HEIGHT as i32;
+            let in_bounds =
+                coord.x >= 0 && coord.x < WIDTH as i32 && coord.y >= 0 && coord.y < HEIGHT as i32;
             #[cfg(feature = "graphics-unchecked")]
             let in_bounds = true;
 
