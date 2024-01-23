@@ -14,11 +14,11 @@ use hal::stm32;
 use stm32f4xx_hal as hal;
 
 use embedded_graphics::{
-    prelude::*,
+    mono_font::{ascii::FONT_6X9, MonoTextStyle},
     pixelcolor::BinaryColor,
+    prelude::*,
     primitives::{Circle, PrimitiveStyle},
     text::Text,
-    mono_font::{MonoTextStyle, ascii::FONT_6X9}
 };
 
 use st7920::ST7920;
@@ -63,13 +63,13 @@ fn main() -> ! {
         let t = Text::new(
             "Hello Rust!",
             Point::new(40, 16),
-            MonoTextStyle::new(&FONT_6X9, BinaryColor::On)
+            MonoTextStyle::new(&FONT_6X9, BinaryColor::On),
         );
 
         c.draw(&mut disp).unwrap();
         t.draw(&mut disp).unwrap();
 
-        disp.flush( &mut delay).expect("could not flush display");
+        disp.flush(&mut delay).expect("could not flush display");
     }
 
     loop {
