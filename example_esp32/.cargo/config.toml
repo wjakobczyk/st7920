@@ -1,0 +1,27 @@
+[build]
+target = "xtensa-esp32-espidf"
+#target = "xtensa-esp32s2-espidf"
+#target = "xtensa-esp32s3-espidf"
+#target = "riscv32imc-esp-espidf"
+
+rustflags = ["--cfg", "espidf_time64"]
+
+[target.xtensa-esp32-espidf]
+linker = "ldproxy"
+
+[target.xtensa-esp32s2-espidf]
+linker = "ldproxy"
+
+[target.xtensa-esp32s3-espidf]
+linker = "ldproxy"
+
+[target.riscv32imc-esp-espidf]
+linker = "ldproxy"
+rustflags = ["-C", "default-linker-libraries"]
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+[env]
+#ESP_IDF_SYS_ROOT_CRATE = { value = "main" }
+ESP_IDF_VERSION = { value = "tag:v5.1.2" }

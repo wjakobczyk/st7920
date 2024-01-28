@@ -1,0 +1,25 @@
+# -*- coding: utf-8 -*-
+
+[package]
+name = "st7920-example-esp32"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+embedded-graphics = "0.8"
+embedded-hal = "1"
+enumset = "1"
+esp-idf-hal = "0.43"
+esp-idf-svc = "0.48"
+esp-idf-sys = { version = "0.34", features = [ "binstart" ] }
+
+#st7920 = { version = "0.5", features = [ "graphics" ] }
+st7920 = { path = "..", features = [ "graphics" ] }
+
+[build-dependencies]
+embuild = "0.31"
+autocfg = "1"
+
+# vim: ts=4 sw=4 expandtab
