@@ -6,11 +6,10 @@ extern crate panic_semihosting;
 use cortex_m::peripheral::Peripherals;
 use cortex_m_rt::entry;
 
-use hal::delay::Delay;
 use hal::gpio::*;
 use hal::rcc::RccExt;
 use hal::spi::*;
-use hal::stm32;
+use hal::timer::SysTimerExt;
 use stm32f4xx_hal as hal;
 
 use embedded_graphics::{
@@ -20,40 +19,54 @@ use embedded_graphics::{
     primitives::{Circle, PrimitiveStyle},
     text::Text,
 };
+use embedded_hal_bus::spi::ExclusiveDevice;
 
 use st7920::ST7920;
 
+struct NoPin();
+
+impl embedded_hal::digital::ErrorType for NoPin {
+    type Error = core::convert::Infallible;
+}
+
+impl embedded_hal::digital::OutputPin for NoPin {
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
 #[entry]
 fn main() -> ! {
-    if let (Some(p), Some(cp)) = (stm32::Peripherals::take(), Peripherals::take()) {
+    if let (Some(p), Some(cp)) = (hal::pac::Peripherals::take(), Peripherals::take()) {
         let rcc = p.RCC.constrain();
 
-        let clocks = rcc
-            .cfgr
-            .sysclk(stm32f4xx_hal::time::MegaHertz(168))
-            .freeze();
+        let clocks = rcc.cfgr.sysclk(hal::time::Hertz::MHz(168)).freeze();
 
-        let mut delay = Delay::new(cp.SYST, clocks);
+        let mut delay = cp.SYST.delay(&clocks);
 
         let gpiob = p.GPIOB.split();
 
-        let sck = gpiob.pb3.into_alternate_af5();
-        let mosi = gpiob.pb5.into_alternate_af5();
+        let sck = gpiob.pb3.into_alternate();
+        let mosi = gpiob.pb5.into_alternate();
         let reset = gpiob.pb7.into_push_pull_output();
         let cs = gpiob.pb6.into_push_pull_output();
 
-        let spi = Spi::spi1(
+        let spi = Spi1::new(
             p.SPI1,
-            (sck, NoMiso, mosi),
+            (sck, NoMiso::new(), mosi),
             Mode {
                 polarity: Polarity::IdleLow,
                 phase: Phase::CaptureOnFirstTransition,
             },
-            stm32f4xx_hal::time::KiloHertz(600).into(),
-            clocks,
+            hal::time::Hertz::kHz(600),
+            &clocks,
         );
+        let spidev = ExclusiveDevice::new_no_delay(spi, NoPin());
 
-        let mut disp = ST7920::new(spi, reset, Some(cs), false);
+        let mut disp = ST7920::new(spidev, reset, Some(cs), false);
 
         disp.init(&mut delay).expect("could not init display");
         disp.clear(&mut delay).expect("could not clear display");
