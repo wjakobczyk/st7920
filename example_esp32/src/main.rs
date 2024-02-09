@@ -40,8 +40,8 @@ fn main() {
     let mut delay = hal::delay::Ets;
     let mut disp = ST7920::new(
         spi_dev_drv,
-        hal::gpio::PinDriver::output(dp.pins.gpio5).unwrap(),
-        Some(hal::gpio::PinDriver::output(dp.pins.gpio4).unwrap()),
+        hal::gpio::PinDriver::output(dp.pins.gpio33).unwrap(),
+        Some(hal::gpio::PinDriver::output(dp.pins.gpio15).unwrap()),
         false,
     );
     disp.init(&mut delay).expect("could not init display");
