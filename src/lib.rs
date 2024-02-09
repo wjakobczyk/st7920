@@ -108,7 +108,7 @@ where
     ) -> Result<(), Error<SPIError, PinError>> {
         if let Some(cs) = self.cs.as_mut() {
             delay.delay_us(1);
-            cs.set_high().map_err(Error::Pin)?;
+            cs.set_low().map_err(Error::Pin)?;
         }
         Ok(())
     }
