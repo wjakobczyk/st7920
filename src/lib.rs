@@ -113,12 +113,11 @@ where
         Ok(())
     }
 
-    /// Initialize the display controller
-    pub fn init<Delay: DelayNs>(
+    #[inline]
+    fn do_init<Delay: DelayNs>(
         &mut self,
         delay: &mut Delay,
     ) -> Result<(), Error<SPIError, PinError>> {
-        self.enable_cs(delay)?;
         self.hard_reset(delay)?;
         self.write_command(Instruction::BasicFunction)?;
         delay.delay_us(200);
@@ -132,9 +131,18 @@ where
         delay.delay_ms(10);
         self.write_command(Instruction::GraphicsOn)?;
         delay.delay_ms(100);
-
-        self.disable_cs(delay)?;
         Ok(())
+    }
+
+    /// Initialize the display controller
+    pub fn init<Delay: DelayNs>(
+        &mut self,
+        delay: &mut Delay,
+    ) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs(delay)?;
+        let result = self.do_init(delay);
+        self.disable_cs(delay)?;
+        result
     }
 
     fn hard_reset<Delay: DelayNs>(
@@ -328,13 +336,8 @@ where
         }
     }
 
-    /// Flush buffer to update entire display
-    pub fn flush<Delay: DelayNs>(
-        &mut self,
-        delay: &mut Delay,
-    ) -> Result<(), Error<SPIError, PinError>> {
-        self.enable_cs(delay)?;
-
+    #[inline]
+    fn do_flush(&mut self) -> Result<(), Error<SPIError, PinError>> {
         for y in 0..HEIGHT as u8 / 2 {
             self.set_address(0, y)?;
 
@@ -347,8 +350,54 @@ where
                 self.write_data(self.buffer[row_start + x])?;
             }
         }
+        Ok(())
+    }
 
+    /// Flush buffer to update entire display
+    pub fn flush<Delay: DelayNs>(
+        &mut self,
+        delay: &mut Delay,
+    ) -> Result<(), Error<SPIError, PinError>> {
+        self.enable_cs(delay)?;
+        let result = self.do_flush();
         self.disable_cs(delay)?;
+        result
+    }
+
+    #[inline]
+    fn do_flush_region(
+        &mut self,
+        x: u8,
+        mut y: u8,
+        w: u8,
+        h: u8,
+    ) -> Result<(), Error<SPIError, PinError>> {
+        let mut adj_x = x;
+        if self.flip {
+            y = HEIGHT as u8 - (y + h);
+            adj_x = WIDTH as u8 - (x + w);
+        }
+
+        let mut left = adj_x - adj_x % X_ADDR_DIV;
+        let mut right = (adj_x + w) - 1;
+        right -= right % X_ADDR_DIV;
+        right += X_ADDR_DIV;
+
+        if left > adj_x {
+            left -= X_ADDR_DIV; //make sure rightmost pixels are covered
+        }
+
+        let mut row_start = y as usize * ROW_SIZE;
+        self.set_address(adj_x, y)?;
+        for y in y..(y + h) {
+            self.set_address(adj_x, y)?;
+
+            for x in left / 8..right / 8 {
+                self.write_data(self.buffer[row_start + x as usize])?;
+            }
+
+            row_start += ROW_SIZE;
+        }
         Ok(())
     }
 
@@ -361,7 +410,7 @@ where
     pub fn flush_region<Delay: DelayNs>(
         &mut self,
         x: u8,
-        mut y: u8,
+        y: u8,
         mut w: u8,
         mut h: u8,
         delay: &mut Delay,
@@ -377,37 +426,12 @@ where
             }
 
             self.enable_cs(delay)?;
-
-            let mut adj_x = x;
-            if self.flip {
-                y = HEIGHT as u8 - (y + h);
-                adj_x = WIDTH as u8 - (x + w);
-            }
-
-            let mut left = adj_x - adj_x % X_ADDR_DIV;
-            let mut right = (adj_x + w) - 1;
-            right -= right % X_ADDR_DIV;
-            right += X_ADDR_DIV;
-
-            if left > adj_x {
-                left -= X_ADDR_DIV; //make sure rightmost pixels are covered
-            }
-
-            let mut row_start = y as usize * ROW_SIZE;
-            self.set_address(adj_x, y)?;
-            for y in y..(y + h) {
-                self.set_address(adj_x, y)?;
-
-                for x in left / 8..right / 8 {
-                    self.write_data(self.buffer[row_start + x as usize])?;
-                }
-
-                row_start += ROW_SIZE;
-            }
-
+            let result = self.do_flush_region(x, y, w, h);
             self.disable_cs(delay)?;
+            result
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 }
 
